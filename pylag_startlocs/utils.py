@@ -1,7 +1,8 @@
 import numpy as np
 import random as r
 import multiprocessing as mp
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Polygon, Point, MultiPolygon
+import PyFVCOM as pf
 
 # TODO Parrerererelalise
 
@@ -56,17 +57,32 @@ class start_locs_set():
 
 class grid_area():
     def __init__(self, outline_points):
-        if type(outline_points) == Polygon:
+        if type(outline_points) == Polygon or type(outline_points) == MultiPolygon:
             self.area_poly = outline_points
         else:
             self.area_poly = Polygon(tuple(map(tuple, outline_points)))
         pb_temp = self.area_poly.bounds
         self.area_bound_box = np.asarray([[pb_temp[0], pb_temp[2]],[pb_temp[1], pb_temp[3]]])
+        self.has_fvcom = False
+
+    def add_fvcom_freader(self, fvcom_fr_str):
+        self.fvcom_fr_str = fvcom_fr_str
+        self.has_fvcom = True
 
     def points_in_area(self, points_list):
         particles_in = []
+
         for this_point in points_list:
             particles_in.append(Point(this_point).within(self.area_poly))
+        
+        if self.has_fvcom:
+            self.fvcom_fr = pf.read.FileReader(self.fvcom_fr_str)
+            points_list = np.asarray(points_list)
+            particles_in = np.asarray(particles_in)
+            test_pts = points_list[particles_in,:] 
+            in_fvcom = self.fvcom_fr.in_domain(test_pts[:,0], test_pts[:,1], cartesian=True)
+            particles_in[particles_in == True] = in_fvcom
+
         return np.asarray(particles_in)
 
 
